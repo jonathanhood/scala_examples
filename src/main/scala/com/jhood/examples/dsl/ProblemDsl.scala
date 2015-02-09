@@ -1,15 +1,28 @@
 package com.jhood.examples.dsl
 
 trait ProblemDsl {
-  implicit def intToProblem(x: Int): Problem = Value(x)
-
-  abstract class ProblemDsl[A <% Problem] { 
-    def left: A
-    def plus(right: Problem): Problem = Operation(_ + _, left, right)
-    def minus(right: Problem): Problem = Operation(_ - _, left, right) 
+  trait Conversion[A] {
+    def convert(x: A): Problem
+  }
+  
+  implicit def intConverter = new Conversion[Int] {
+    def convert(x: Int): Problem = Value(x)
   }
 
-  implicit class PimpedProblem(val left: Problem) extends ProblemDsl[Problem]
-  implicit class PimpedInt(val left: Int) extends ProblemDsl[Int]
+  implicit def passThroughConverter = new Conversion[Problem] {
+    def convert(x: Problem): Problem = x
+  }
+
+  implicit class ProblemLanguage[A : Conversion](val left: A) {
+    def plus[B : Conversion](right: B): Problem = makeOper(_ + _, right)
+    def minus[B : Conversion](right: B): Problem = makeOper(_ - _, right) 
+
+    private[this] def makeOper[B : Conversion](oper: (Int,Int) => Int, right: B): Problem =
+      Operation(
+        oper, 
+        implicitly[Conversion[A]].convert(left), 
+        implicitly[Conversion[B]].convert(right)
+      )
+  }
 }
 
